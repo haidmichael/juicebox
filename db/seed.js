@@ -4,10 +4,15 @@ const {
     createUser,
     updateUser,
     getAllUsers,
+    getUserbyId,
     createPost,
     updatePost,
     getAllPosts,
-    getPostsByUser
+    getPostsByUser,
+    createTags,
+    createPostTag,
+    addTagsToPost,
+    getPostById
 } = require('./index');
 
 
@@ -17,7 +22,8 @@ async function dropTables() {
         console.log('Starting to drop tables...');
 
         await client.query(`
-        
+        DROP TABLE IF EXISTS post_tags;
+        DROP TABLE IF EXISTS tags;
         DROP TABLE IF EXISTS posts;
         DROP TABLE IF EXISTS users;
         
@@ -34,6 +40,7 @@ async function createTables() {
     try {
         console.log('Starting to build tables...');        
         await client.query(`
+
             CREATE TABLE users (
                 id SERIAL PRIMARY KEY,
                 username VARCHAR(255) UNIQUE NOT NULL,
@@ -42,6 +49,7 @@ async function createTables() {
                 location VARCHAR(255) NOT NULL, 
                 active BOOLEAN DEFAULT true
             );
+
             CREATE TABLE posts (
                 id SERIAL PRIMARY KEY,
                 "authorId" INTEGER REFERENCES users(id), 
@@ -49,6 +57,18 @@ async function createTables() {
                 content TEXT NOT NULL,
                 active BOOLEAN DEFAULT true
             );
+
+            CREATE TABLE tags (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) UNIQUE NOT NULL
+            );
+
+            CREATE TABLE post_tags (
+                "postId" INTEGER REFERENCES posts(id),
+                "tagId" INTEGER REFERENCES tags(id),
+                UNIQUE ("postId", "tagId")    
+            );
+
         `);
         console.log('Finished building the tables!');
     } catch (error) {
@@ -80,10 +100,6 @@ async function createInitialUsers() {
             location: 'NYC'
         });
 
-        // console.log(albert);
-        // console.log(sandra);
-        // console.log(glamgal);
-
         console.log('Finished creating users!');
     } catch(error) {
         console.error('Error creating users!');
@@ -98,19 +114,22 @@ async function createInitialPosts() {
         await createPost({
             authorId: albert.id,
             title: "First Post",
-            content: "I hope I love writing blogs as much as I love writing them."   
+            content: "I hope I love writing blogs as much as I love writing them.",
+            tags: ["#happy", "#youcandoanything"]   
         });
 
         await createPost({
             authorId: sandra.id,
-            title: "First Post",
-            content: "I am writing a post!"
+            title: "Yep, this is my first post",
+            content: "I am writing a post!",
+            tags: ["#happy", "#best-day-ever"]
         });
 
         await createPost({
             authorId: glamgal.id,
             title: "1 Post",
-            content: "Hello World, I will be writing post!"
+            content: "Hello World, I will be writing post!",
+            tags: ["#happy", "#youcandoanything", "#canmandoeverything"]
         });
         console.log('Finished creating post!');
     } catch (error) {
@@ -118,6 +137,30 @@ async function createInitialPosts() {
         throw error;
     }
 }
+
+async function createInitialTags() {
+    try {
+      console.log("Starting to create tags..*.");
+  
+      const [happy, sad, inspo, catman] = await createTags([
+        '#happy', 
+        '#worst-day-ever', 
+        '#youcandoanything',
+        '#catmandoeverything'
+      ]);
+  
+      const [postOne, postTwo, postThree] = await getAllPosts();
+  
+      await addTagsToPost(postOne.id, [happy, inspo]);
+      await addTagsToPost(postTwo.id, [sad, inspo]);
+      await addTagsToPost(postThree.id, [happy, catman, inspo]);
+  
+      console.log("Finished creating tags!");
+    } catch (error) {
+      console.log("Error creating * tags!");
+      throw error;
+    }
+  }
 
 async function rebuildDB() {
     try{
@@ -127,6 +170,7 @@ async function rebuildDB() {
         await createTables();
         await createInitialUsers();
         await createInitialPosts();
+        await createInitialTags();
     } catch (error) {
         console.log('Error during rebuildDB');
         throw error;
